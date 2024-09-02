@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bilingual Lyrics Slideshow</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: Helvetica, Arial, sans-serif;
+            background-color: black;
+            color: white;
+            overflow: hidden;
+        }
+        #container {
+            display: flex;
+            height: calc(100% - 150px);
+        }
+        #left, #right {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+        }
+        #controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 10px;
+            border-radius: 5px;
+        }
+        button {
+            margin: 0 5px;
+            padding: 5px 10px;
+            font-size: 16px;
+        }
+        #input-area {
+            position: fixed;
+            bottom: 70px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            background-color: rgba(255, 255, 255, 0.1);
+            padding: 10px;
+            border-radius: 5px;
+        }
+        #lyrics-input {
+            width: 100%;
+            height: 100px;
+            margin-bottom: 10px;
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="left"></div>
+        <div id="right"></div>
+    </div>
+    <div id="input-area">
+        <textarea id="lyrics-input" placeholder="Paste your lyrics here..."></textarea>
+        <button id="process-lyrics">Process Lyrics</button>
+    </div>
+    <div id="controls">
+        <button id="toggleLang">Toggle Language</button>
+        <button id="prevSlide">Previous</button>
+        <button id="nextSlide">Next</button>
+    </div>
+
+    <script>
+        const API_KEY = '90843c7f-8872-4fce-864e-8d27e846d99e:fx';
+        let currentSlide = 0;
+        let isEnglishLeft = true;
+        let slides = [];
+
+        const leftDiv = document.getElementById('left');
+        const rightDiv = document.getElementById('right');
+        const toggleLangBtn = document.getElementById('toggleLang');
+        const prevSlideBtn = document.getElementById('prevSlide');
+        const nextSlideBtn = document.getElementById('nextSlide');
+        const lyricsInput = document.getElementById('lyrics-input');
+        const processLyricsBtn = document.getElementById('process-lyrics');
+
+        function updateSlide() {
+            if (slides.length === 0) {
+                leftDiv.textContent = "No lyrics loaded";
+                rightDiv.textContent = "Aucune parole chargée";
+                return;
+            }
+            const slide = slides[currentSlide];
+            if (isEnglishLeft) {
+                leftDiv.textContent = slide.english;
+                rightDiv.textContent = slide.french;
+            } else {
+                leftDiv.textContent = slide.french;
+                rightDiv.textContent = slide.english;
+            }
+        }
+
+        function nextSlide() {
+            if (slides.length === 0) return;
+            currentSlide = (currentSlide + 1) % slides.length;
+            updateSlide();
+        }
+
+        function prevSlide() {
+            if (slides.length === 0) return;
+            currentSlide = (currentSlide - 1 + slides.length) % slides.length;
+            updateSlide();
+        }
+
+        function toggleLanguage() {
+            isEnglishLeft = !isEnglishLeft;
+            updateSlide();
+        }
+
+        async function translateText(text) {
+            try {
+                const response = await fetch('https://api-free.deepl.com/v2/translate', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `DeepL-Auth-Key ${API_KEY}`,
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: new URLSearchParams({
+                        'text': text,
+                        'target_lang': 'FR'
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                console.log('Translation successful:', data.translations[0].text);
+                return data.translations[0].text;
+            } catch (error) {
+                console.error('Translation failed:', error);
+                alert('There was an error processing your translation. Please check the console for details.');
+                return 'Translation failed';
+            }
+        }
+
+        async function processLyrics() {
+            const lyrics = lyricsInput.value.trim();
+            if (lyrics) {
+                const stanzas = lyrics.split('\n\n');
+                slides = [];
+                for (let stanza of stanzas) {
+                    const translatedStanza = await translateText(stanza);
+                    slides.push({
+                        english: stanza,
+                        french: translatedStanza
+                    });
+                }
+                currentSlide = 0;
+                updateSlide();
+            } else {
+                console.log('No lyrics input provided.');
+                alert('Please paste some lyrics to process.');
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight') {
+                nextSlide();
+            } else if (e.key === 'ArrowLeft') {
+                prevSlide();
+            }
+        });
+
+        toggleLangBtn.addEventListener('click', toggleLanguage);
+        prevSlideBtn.addEventListener('click', prevSlide);
+        nextSlideBtn.addEventListener('click', nextSlide);
+        processLyricsBtn.addEventListener('click', processLyrics);
+
+        updateSlide();
+    </script>
+</body>
+</html>
